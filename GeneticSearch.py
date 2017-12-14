@@ -212,7 +212,8 @@ class GeneticSearch:
 		
 	def mutateByChance(self, individual):
 		mutateVal = lambda val: (val + np.random.randint(0, self.numOfCategories-1) + 1) % self.numOfCategories
-		individual = [mutateVal(f_i) if random.random() < self.mutation_probability else f_i for f_i in individual]
+		mutateParam = np.random.rand(self.individualSize) < self.mutation_probability
+		individual = [mutateVal(f_i) if m else f_i for f_i, m in zip(individual, mutateParam)]
 		return individual
 
 	def crossoverEachBit(self, parent1, parent2, crossBitPribability):
@@ -220,8 +221,10 @@ class GeneticSearch:
 		child1 = list(parent1)
 		child2 = list(parent2)
 
-		newCld1 = [child2[i] if random.random() < crossBitPribability else child1[i] for i in range(self.individualSize)]
-		newCld2 = [child1[i] if random.random() < crossBitPribability else child2[i] for i in range(self.individualSize)]
+		crossOvers = np.random.rand(self.individualSize) < crossBitPribability
+
+		newCld1 = [child2[i] if c else child1[i] for i, c in zip(range(self.individualSize), crossOvers)]
+		newCld2 = [child1[i] if c else child2[i] for i, c in zip(range(self.individualSize), crossOvers)]
 
 		#	ensure class is still in the subset:
 		return [newCld1, newCld2]
