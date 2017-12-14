@@ -33,7 +33,8 @@ class GeneticSearch:
 		#	set probability parameters:
 		self.feature_probability = 0.3
 		self.mutation_probability = 0.05
-		self.crossover_probability = 0.4
+		self.mutationsPerIndividual = 25.0
+		self.crossover_probability = 0.4 - 0.2
 		self.bit_crossover_probability = 0.3
 		self.populationSize = 200
 		self.populationBottleneck = 0.8
@@ -144,7 +145,7 @@ class GeneticSearch:
 		#	the all times best. if maximum number of iterations is given, use it also as a limit
 
 		#	try setting a general mutation probability:
-		self.mutation_probability = 1.0 / (self.individualSize)
+		self.mutation_probability = self.mutationsPerIndividual / (self.individualSize)
 
 		iCurrentGen = 1
 		while self.numOfGensSinceBest < maxNumOfImproveTries and \
@@ -196,7 +197,7 @@ class GeneticSearch:
 	def getProbabilitiesByFitness(self):
 		max_h = max(self.populationFitnesses)
 		min_h = min(self.populationFitnesses)
-		certaintyLevel = 5
+		certaintyLevel = 6
 		if min_h == max_h:
 			tranform_h = lambda h: 5
 		else:

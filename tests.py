@@ -121,7 +121,7 @@ if __name__ == '__main__':
     import time
     timestamp = int(time.time())
 
-    gnn = GeneticNN.GeneticNN(GeneticNN.SearchInterval(-1.5, 1.5), logFile="log{}.txt".format(timestamp))
+    gnn = GeneticNN.GeneticNN(GeneticNN.SearchInterval(-1.5, 1.5), logFile="logs/log{}.txt".format(timestamp))
     gnn.tuneParameters(netTrainer, testBatch, yTest)
 
     acc2 = netTrainer.score(testBatch, yTest)

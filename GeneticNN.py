@@ -21,8 +21,8 @@ class GeneticNN:
         """
         self.searchInterval = interval
         self.logFile = logFile
-        self.numOfIntervalPartitions = 3
-        self.populationSize = 100
+        self.numOfIntervalPartitions = 5
+        self.populationSize = 50
 
     def tuneParameters(self, model, trainSet, trainLabels, numberOfIterations=5, verbose=True):
         """
@@ -41,15 +41,16 @@ class GeneticNN:
         bestParams = None
         bestFitness = None
         bestPoint = None
-        evaluator = NNWeightsEvaluator(searchIntervals, model, weightsShapesList, weightsSizesList, trainSet, trainLabels)
+        evaluator = NNWeightsEvaluator(searchIntervals, self.numOfIntervalPartitions,
+                                       model, weightsShapesList, weightsSizesList, trainSet, trainLabels)
         for iteration in range(numberOfIterations):
             GA = GeneticSearch(numberOfParameters, self.logFile,
                                numOfCategories=self.numOfIntervalPartitions, fitnessObj=evaluator)
             GA.constructPopulation(self.populationSize, GeneticSearch.InitialPopulation.RANDOM)
-            GA.startEvolution(verbose=True)
+            GA.startEvolution(maxNumOfImproveTries=50 , verbose=True)
 
             currentBestParams, currentBestFitness = GA.getBestSubsetAllTimes()
-            currentBestPoint = self.getPoint(currentBestParams, searchIntervals)
+            currentBestPoint = self.getPoint(currentBestParams, searchIntervals, self.numOfIntervalPartitions)
             if bestFitness is None or currentBestFitness < bestFitness:
                 bestParams = currentBestParams
                 bestFitness = currentBestFitness
@@ -83,29 +84,32 @@ class GeneticNN:
 
 
     @staticmethod
-    def getPoint(individual, intervals):
+    def getPoint(individual, intervals, numOfIntervalPartitions):
         """
         Using the search intervals and individual (boolean vector), return the corresponding point they represents.
+        :param numOfIntervalPartitions:
         :param individual: a boolean vector from the GA
         :param intervals: the vector of search intervals.
         :return: a point in space with value for each weight.
         """
-        return np.array([GeneticNN.getValueInInterval(interval, side) for interval, side in zip(intervals, individual)])
+        return np.array([GeneticNN.getValueInInterval(interval, side, numOfIntervalPartitions) \
+                         for interval, side in zip(intervals, individual)])
 
     @staticmethod
-    def getValueInInterval(interval, side):
+    def getValueInInterval(interval, side, numOfIntervalPartitions):
         """
         Given an interval and a boolean side (represents top / bottom), return the value that represents the
         sub-interval (the middle).
+        :param numOfIntervalPartitions:
         :param interval: a SearchInterval object - tuple of (low,high).
         :param side: boolean that represents the relevant sub-interval. false = lower, true = higher.
         :return: a number representing the relevant half (it's middle).
         """
         diff = interval.high - interval.low
         #   calculate the middle of the lower side (represent the lower interval):
-        lowSide = interval.low + diff/6
+        lowSide = interval.low + diff/(numOfIntervalPartitions * 2)
         #   calculate the value you need to add to get the middle of the higher side:
-        lowToHighSide = diff / 3
+        lowToHighSide = diff / numOfIntervalPartitions
 
         #   return the right one using the boolean side:
         return lowSide + side * lowToHighSide
@@ -119,8 +123,10 @@ class GeneticNN:
 
 class NNWeightsEvaluator:
 
-    def __init__(self, searchIntervals, model, weightsShapesList, weightsSizesList, trainSet, trainLabels):
+    def __init__(self, searchIntervals, numOfIntervalPartitions, model,
+                 weightsShapesList, weightsSizesList, trainSet, trainLabels):
         self.searchIntervals = searchIntervals
+        self.numOfIntervalPartitions = numOfIntervalPartitions
         self.model = model
         self.weightsShapesList = weightsShapesList
         self.weightsSizesList = weightsSizesList
@@ -136,7 +142,7 @@ class NNWeightsEvaluator:
         :param individual:
         :return: value between 0 and 100. 0 = best, 100 = worst
         """
-        weights = GeneticNN.getPoint(individual, self.searchIntervals)
+        weights = GeneticNN.getPoint(individual, self.searchIntervals, self.numOfIntervalPartitions)
 
         #   update model's weights, and get score:
         parametersList = self.transformWeightVecToList(weights)
