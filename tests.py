@@ -1,4 +1,5 @@
 from NNFullyCon import NNFullyCon as NNFC
+from NNFullyConTrainer import NNFullyConTrainer as NNFCT
 import GeneticNN
 import numpy as np
 import unittest
@@ -103,7 +104,7 @@ class basicTest(unittest.TestCase):
 
 if __name__ == '__main__':
     # unittest.main()
-    net = NNFC([10, 100, 10])
+    netTrainer = NNFCT([10, 100, 100, 10])
 
     numOfExamples = 10000
     sizeOfSet = 10
@@ -114,11 +115,11 @@ if __name__ == '__main__':
         float) / intervalMax
     yTest = np.argmin(testBatch, axis=1)
 
-    acc = net.score(testBatch, yTest)
+    acc = netTrainer.score(testBatch, yTest)
     print ("Accuracy: " + str(acc))
 
-    gnn = GeneticNN.GeneticNN(GeneticNN.SearchInterval(-5, 5), logFile="log5.txt")
-    gnn.tuneParameters(net, testBatch, yTest)
+    gnn = GeneticNN.GeneticNN(GeneticNN.SearchInterval(-1.5, 1.5), logFile="log5.txt")
+    gnn.tuneParameters(netTrainer, testBatch, yTest)
 
-    acc2 = net.score(testBatch, yTest)
+    acc2 = netTrainer.score(testBatch, yTest)
     print ("Accuracy: " + str(acc2))

@@ -1,12 +1,10 @@
-import GeneticNN
 import tensorflow as tf
 import numpy as np
 
-class NNFullyCon(GeneticNN.NNGeneticModel):
-    """
-    A Class for fully connected NN that obeys the GeneticNN requirements.
+class NNFullyConTrainer:
     """
 
+    """
     def __init__(self, networkShape):
         """
         Constructs a fully connected NN with given shape. The shape includes input & out dimensions with at least 1
@@ -17,13 +15,12 @@ class NNFullyCon(GeneticNN.NNGeneticModel):
         self.parametersInfoList = None
         self.inputLayer = None
         self.graph = tf.Graph()
+
+        self.feedDict = {}
         with self.graph.as_default():
             self.yHat = self.buildNetwork()
             self.prediction = self.getPrediction(self.yHat)
-            #   Init variables:
             self.sess = tf.Session()
-            self.sess.run(tf.global_variables_initializer())
-
 
     def buildNetwork(self):
         #   Construct an input layer:
@@ -32,7 +29,7 @@ class NNFullyCon(GeneticNN.NNGeneticModel):
         #   Build all hidden layers:
         prevLayer = self.inputLayer
         for i in range(1, len(self.networkShape)):
-            with tf.variable_scope("Layer{}".format(i), reuse=tf.AUTO_REUSE):
+            with self.graph.name_scope("Layer{}".format(i)):
                 newHiddenLayer = self.buildLayer(prevLayer, i)
                 #   Add activation (can be non-differentiable! :D):
                 newHiddenLayer = self.applyActivation(newHiddenLayer)
@@ -52,8 +49,13 @@ class NNFullyCon(GeneticNN.NNGeneticModel):
         sizes.
         :return: the new layer Tensor (graph)
         """
-        W = tf.get_variable("weights", [self.networkShape[layerIndex - 1], self.networkShape[layerIndex]], initializer=tf.random_normal_initializer(), dtype=tf.float64)
-        b = tf.get_variable("biases", [self.networkShape[layerIndex]], initializer=tf.zeros_initializer(), dtype=tf.float64)
+        WShape = [self.networkShape[layerIndex - 1], self.networkShape[layerIndex]]
+        W = tf.placeholder(name="weights", shape=WShape, dtype=tf.float64)
+        bShape = [self.networkShape[layerIndex]]
+        b = tf.placeholder(name="biases", shape=bShape, dtype=tf.float64)
+
+        self.feedDict[W] = np.zeros(WShape)
+        self.feedDict[b] = np.zeros(bShape)
 
         newLayer = tf.matmul(inputLayer, W) + b
 
@@ -62,23 +64,11 @@ class NNFullyCon(GeneticNN.NNGeneticModel):
     @staticmethod
     def applyActivation(rawOutVec):
         return tf.nn.relu(rawOutVec)
-        #return NNFullyCon.stepActivation(rawOutVec)
+        # return NNFullyCon.stepActivation(rawOutVec)
 
     @staticmethod
     def stepActivation(rawOutVec):
         return tf.cast(rawOutVec > 0, dtype=tf.float64)
-
-
-    def getParametersList(self):
-        parametersList = []
-        with self.graph.as_default():
-            for i in range(1, len(self.networkShape)):
-                with tf.variable_scope("Layer{}".format(i), reuse=True):
-                    W = tf.get_variable("weights", [self.networkShape[i - 1], self.networkShape[i]], dtype=tf.float64)
-                    b = tf.get_variable("biases", [self.networkShape[i]], dtype=tf.float64)
-                    parametersList.append(self.sess.run(W))
-                    parametersList.append(self.sess.run(b))
-        return parametersList
 
     def getParametersInfoList(self):
         """
@@ -91,28 +81,26 @@ class NNFullyCon(GeneticNN.NNGeneticModel):
         parametersInfoList = []
         with self.graph.as_default():
             for i in range(1, len(self.networkShape)):
-                with tf.variable_scope("Layer{}".format(i), reuse=True):
-                    W = tf.get_variable("weights", [self.networkShape[i - 1], self.networkShape[i]], dtype=tf.float64)
-                    b = tf.get_variable("biases", [self.networkShape[i]], dtype=tf.float64)
-                    parametersInfoList.append(self.sess.run([tf.shape(W), tf.size(W)]))
-                    parametersInfoList.append(self.sess.run([tf.shape(b), tf.size(b)]))
+                currentLayer = "Layer{}".format(i)
+                W = self.graph.get_tensor_by_name(currentLayer + "/weights:0")
+                b = self.graph.get_tensor_by_name(currentLayer + "/biases:0")
+                parametersInfoList.append(self.sess.run([tf.shape(W), tf.size(W)]))
+                parametersInfoList.append(self.sess.run([tf.shape(b), tf.size(b)]))
         self.parametersInfoList = parametersInfoList
         return parametersInfoList
 
     def updateParameters(self, parametersList):
         """
-        Update the parameters/weights of the network using the given parameters list.
+        Update the feed dict actually..
         :param parametersList: a list of all parameters in the same order as 'getParametersList' returns.
         :return:
         """
         with self.graph.as_default():
             for i in range(1, len(self.networkShape)):
-                with tf.variable_scope("Layer{}".format(i), reuse=True):
-                    W = tf.get_variable("weights", [self.networkShape[i - 1], self.networkShape[i]], dtype=tf.float64)
-                    b = tf.get_variable("biases", [self.networkShape[i]], dtype=tf.float64)
+                currentLayer = "Layer{}".format(i)
 
-                    self.sess.run(tf.assign(W, parametersList[2*(i-1)]))
-                    self.sess.run(tf.assign(b, parametersList[2 * (i-1) + 1]))
+                self.feedDict[self.graph.get_tensor_by_name(currentLayer + "/weights:0")] = parametersList[2*(i-1)]
+                self.feedDict[self.graph.get_tensor_by_name(currentLayer + "/biases:0")] = parametersList[2 * (i-1) + 1]
 
     def score(self, testExamples, testLabels):
         """
@@ -122,7 +110,8 @@ class NNFullyCon(GeneticNN.NNGeneticModel):
         :return:
         """
         with self.graph.as_default():
-            prediction = self.sess.run(self.prediction, {self.inputLayer: testExamples})
+            self.feedDict[self.inputLayer] = testExamples
+            prediction = self.sess.run(self.prediction, self.feedDict)
             accuracy = np.sum((prediction == testLabels), dtype=float) / testLabels.size
         return accuracy
 
@@ -130,6 +119,4 @@ class NNFullyCon(GeneticNN.NNGeneticModel):
     def getPrediction(yHat):
         #   Assuming more than 1 example
         return tf.argmax(yHat, axis=1)
-
-
 

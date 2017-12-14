@@ -70,8 +70,7 @@ class GeneticSearch:
 		#	try more random feature subsets:
 		#individualFeatureProba = random.random()
 
-		individual = np.floor(np.random.normal(self.numOfCategories/2, self.numOfCategories/2,\
-									   size=self.individualSize).clip(0,self.numOfCategories-1)).astype(np.int)
+		individual = np.random.randint(0, self.numOfCategories, self.individualSize)
 		self.population.append(individual)
 		return individual
 

@@ -29,9 +29,9 @@ class GeneticNN:
         This function should actually tune the parameters / weights and return a list of tuned parameters as result.
         :return:
         """
-        parametersList = model.getParametersList()
-        weightsSizesList = [w.size for w in parametersList]
-        weightsShapesList = [w.shape for w in parametersList]
+        parametersInfoList = model.getParametersInfoList()
+        weightsSizesList = [p[1] for p in parametersInfoList]
+        weightsShapesList = [p[0] for p in parametersInfoList]
         numberOfParameters = np.sum(weightsSizesList)
 
         #   Each weight is initialized to search a weight in the whole initial interval:
@@ -121,7 +121,7 @@ class NNWeightsEvaluator:
 
     def __init__(self, searchIntervals, model, weightsShapesList, weightsSizesList, trainSet, trainLabels):
         self.searchIntervals = searchIntervals
-        self.model = None
+        self.model = model
         self.weightsShapesList = weightsShapesList
         self.weightsSizesList = weightsSizesList
         self.trainSet = trainSet
@@ -141,7 +141,7 @@ class NNWeightsEvaluator:
         #   update model's weights, and get score:
         parametersList = self.transformWeightVecToList(weights)
         from NNFullyCon import NNFullyCon
-        self.model = NNFullyCon([10, 100, 10])
+        # self.model = NNFullyCon([10, 10, 10, 10])
         self.model.updateParameters(parametersList)
 
         #   compute score and transform to fitness:
