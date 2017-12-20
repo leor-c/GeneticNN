@@ -14,6 +14,7 @@ class NNFullyConTrainer:
         self.networkShape = networkShape
         self.parametersInfoList = None
         self.inputLayer = None
+        self.logits = None
         self.graph = tf.Graph()
 
         self.feedDict = {}
@@ -35,6 +36,7 @@ class NNFullyConTrainer:
                 newHiddenLayer = self.applyActivation(newHiddenLayer)
 
                 prevLayer = newHiddenLayer
+        self.logits = prevLayer
 
         # Add softmax layer:
         yHat = tf.nn.softmax(prevLayer)
@@ -63,7 +65,8 @@ class NNFullyConTrainer:
 
     @staticmethod
     def applyActivation(rawOutVec):
-        return tf.nn.relu(rawOutVec)
+        #return tf.nn.relu(rawOutVec)
+        return tf.nn.tanh(rawOutVec)
         # return NNFullyCon.stepActivation(rawOutVec)
 
     @staticmethod
@@ -119,4 +122,16 @@ class NNFullyConTrainer:
     def getPrediction(yHat):
         #   Assuming more than 1 example
         return tf.argmax(yHat, axis=1)
+
+    def getCELossOp(self, logits, labels):
+        ceLoss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits,
+                                                                        labels=tf.one_hot(labels, depth=self.networkShape[-1])))
+        return ceLoss
+
+    def getCELoss(self, testExamples, testLabels):
+        with self.graph.as_default():
+            self.feedDict[self.inputLayer] = testExamples
+            loss = self.getCELossOp(self.logits, testLabels)
+            lossVal = self.sess.run(loss, self.feedDict)
+        return lossVal*100
 

@@ -21,7 +21,7 @@ class GeneticNN:
         """
         self.searchInterval = interval
         self.logFile = logFile
-        self.numOfIntervalPartitions = 5
+        self.numOfIntervalPartitions = 3
         self.populationSize = 50
 
     def tuneParameters(self, model, trainSet, trainLabels, numberOfIterations=5, verbose=True):
@@ -152,7 +152,10 @@ class NNWeightsEvaluator:
 
         #   compute score and transform to fitness:
         modelScore = self.model.score(self.trainSet, self.trainLabels)
-        return (1 - modelScore) * 100
+        print(modelScore)
+        modelCE = self.model.getCELoss(self.trainSet, self.trainLabels)
+        #return (1 - modelScore) * 100
+        return modelCE
 
     def transformWeightVecToList(self, weightsVec):
         """
