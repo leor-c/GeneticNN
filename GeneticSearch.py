@@ -3,7 +3,6 @@ import numpy as np
 import pickle
 
 
-
 class GeneticSearch:
 	"""
 	A class for selecting best features subset for ML feature selection.
@@ -18,7 +17,6 @@ class GeneticSearch:
 		RANDOM = 1
 		TARGET_SUBSET_PORTION = 2
 
-
 	def __init__(self, individualSize, logFileName=None, numOfCategories=2, fitnessFunc=None, fitnessObj=None):
 		"""
 
@@ -32,9 +30,9 @@ class GeneticSearch:
 		#	C'tor:
 		#	set probability parameters:
 		self.feature_probability = 0.3
-		self.mutation_probability = 0.05
-		self.mutationsPerIndividual = 25.0
-		self.crossover_probability = 0.4 - 0.2
+		self.mutation_probability = 0.005
+		self.mutationsPerIndividual = 2.0
+		self.crossover_probability = 0.4
 		self.bit_crossover_probability = 0.3
 		self.populationSize = 200
 		self.populationBottleneck = 0.8
@@ -55,6 +53,16 @@ class GeneticSearch:
 		self.bestAllTimesScore = np.inf
 		self.numOfGensSinceBest = 0
 
+	def resetParams(self):
+		"""
+		Reset all internal parameter for a fresh start.
+		:return:
+		"""
+		self.population = []
+		self.populationFitnesses = []
+		self.bestAllTimes = []
+		self.bestAllTimesScore = np.inf
+		self.numOfGensSinceBest = 0
 
 	def createIndividual(self, mask=None):
 		"""
@@ -69,12 +77,11 @@ class GeneticSearch:
 			mask = [True for f in range(self.individualSize)]
 
 		#	try more random feature subsets:
-		#individualFeatureProba = random.random()
+		# individualFeatureProba = random.random()
 
 		individual = np.random.randint(0, self.numOfCategories, self.individualSize)
 		self.population.append(individual)
 		return individual
-
 
 	def constructPopulation(self, size, constructionType, mask=None, verbose=True):
 		"""
@@ -90,6 +97,7 @@ class GeneticSearch:
 		:param verbose:
 		:return:
 		"""
+		self.resetParams()
 		self.populationSize = size
 		#	create a population of size 'size'. use mask to retain certain features of the data at first generation
 		if constructionType == GeneticSearch.InitialPopulation.RANDOM:
@@ -105,7 +113,8 @@ class GeneticSearch:
 
 		elif constructionType == GeneticSearch.InitialPopulation.SINGLETONS:
 			#	Start from the bottom up:
-			self.population = [[True if i == j else False for j in range(self.individualSize)] for i in range(self.individualSize)]
+			self.population = [[True if i == j else False for j in range(self.individualSize)] for i in
+							   range(self.individualSize)]
 		self.computePopulationFitness()
 
 		if verbose:
@@ -120,14 +129,11 @@ class GeneticSearch:
 			self.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 		return self.population
 
-
 	def fitness(self, individual, fitFunc=None):
 		return self.fitnessObj.evaluateFitness(individual)
 
-
 	def getCurrentGenAvgFitness(self):
 		return np.average(self.populationFitnesses)
-
 
 	def computePopulationFitness(self):
 		self.populationFitnesses = np.array([self.fitness(self.population[i]) for i in range(len(self.population))])
@@ -139,13 +145,12 @@ class GeneticSearch:
 		# 	# self.populationFitnesses = pool.map(self.fitnessObj.evaluateFitness, self.population)
 		self.updateBest()
 
-
 	def startEvolution(self, maxNumOfImproveTries=15, maxNumOfGenerations=None, verbose=False):
 		#	start evolution process. use default of 15 generations limit on the number of sequential tries to improve
 		#	the all times best. if maximum number of iterations is given, use it also as a limit
 
 		#	try setting a general mutation probability:
-		self.mutation_probability = self.mutationsPerIndividual / (self.individualSize)
+		# self.mutation_probability = self.mutationsPerIndividual / (self.individualSize)
 
 		iCurrentGen = 1
 		while self.numOfGensSinceBest < maxNumOfImproveTries and \
@@ -163,7 +168,6 @@ class GeneticSearch:
 				self.log("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 				iCurrentGen += 1
 
-
 	def evolveNextGen(self):
 		#	evolve the current generation to next generation
 		newPopulation = []
@@ -179,7 +183,7 @@ class GeneticSearch:
 			#	randomly do crossover:
 			if random.random() < self.crossover_probability:
 				#	do crossover between parents:
-				children = self.crossoverEachBit(parents[0],parents[1], self.bit_crossover_probability)
+				children = self.crossoverEachBit(parents[0], parents[1], self.bit_crossover_probability)
 			else:
 				children = parents
 
@@ -187,12 +191,11 @@ class GeneticSearch:
 			children[0] = self.mutateByChance(children[0])
 			children[1] = self.mutateByChance(children[1])
 
-			#	add to the new population: 
+			#	add to the new population:
 			newPopulation.append(children[0])
 			newPopulation.append(children[1])
 		self.population = newPopulation
 		self.computePopulationFitness()
-
 
 	def getProbabilitiesByFitness(self):
 		max_h = max(self.populationFitnesses)
@@ -201,18 +204,18 @@ class GeneticSearch:
 		if min_h == max_h:
 			tranform_h = lambda h: 5
 		else:
-			tranform_h = lambda h: certaintyLevel*(max_h - h)/((max_h - min_h))
-		populationProbabilities = np.array([tranform_h(self.populationFitnesses[i]) for i in range(len(self.populationFitnesses))])
-		#sumOfFit = np.sum(populationProbabilities)
-		#populationProbabilities = [populationProbabilities[i]/sumOfFit for i in range(len(populationProbabilities))]
+			tranform_h = lambda h: certaintyLevel * (max_h - h) / ((max_h - min_h))
+		populationProbabilities = np.array(
+			[tranform_h(self.populationFitnesses[i]) for i in range(len(self.populationFitnesses))])
+		# sumOfFit = np.sum(populationProbabilities)
+		# populationProbabilities = [populationProbabilities[i]/sumOfFit for i in range(len(populationProbabilities))]
 		sumOfFit = np.sum(np.exp(populationProbabilities))
-		softmax = lambda h: (np.exp(h))/sumOfFit
+		softmax = lambda h: (np.exp(h)) / sumOfFit
 		populationProbabilities = [softmax(populationProbabilities[i]) for i in range(len(populationProbabilities))]
 		return populationProbabilities
 
-		
 	def mutateByChance(self, individual):
-		mutateVal = lambda val: (val + np.random.randint(0, self.numOfCategories-1) + 1) % self.numOfCategories
+		mutateVal = lambda val: (val + np.random.randint(0, self.numOfCategories - 1) + 1) % self.numOfCategories
 		mutateParam = np.random.rand(self.individualSize) < self.mutation_probability
 		individual = [mutateVal(f_i) if m else f_i for f_i, m in zip(individual, mutateParam)]
 		return individual
@@ -230,7 +233,6 @@ class GeneticSearch:
 		#	ensure class is still in the subset:
 		return [newCld1, newCld2]
 
-
 	def crossover(self, parent1, parent2):
 		#	do crossover between parents:
 		crossPlace = random.randint(0, self.individualSize)
@@ -238,15 +240,14 @@ class GeneticSearch:
 		child2 = [parent2[i] for i in range(crossPlace)] + [parent1[i] for i in range(crossPlace, self.individualSize)]
 		return [child1, child2]
 
-
 	def getLastBestSubset(self, verbose=False):
 		#	return the best individual's subset in lastest generation (list of boolean values)
 		best = self.getLastBestIndividual()
 		best_list = self.population[best]
 		if verbose:
-			self.log("Best Current Gen Fitness Score: " + str(self.populationFitnesses[best]) + " Of Size: " + str(len(best_list)))
+			self.log("Best Current Gen Fitness Score: " + str(self.populationFitnesses[best]) + " Of Size: " + str(
+				len(best_list)))
 		return best_list
-
 
 	def compareIndividuals(self, individual1Idx, individual2Idx):
 		"""
@@ -300,7 +301,6 @@ class GeneticSearch:
 		else:
 			return -1
 
-
 	def getLastBestIndividual(self):
 		#	get the best individual of latest generation (actual list of booleans)
 		best = 0
@@ -321,13 +321,12 @@ class GeneticSearch:
 		else:
 			self.numOfGensSinceBest += 1
 
-
 	def getBestSubsetAllTimes(self, verbose=False):
 		best_list = self.bestAllTimes
 		if verbose:
-			self.log("Best All Times Gen Fitness Score: " + str(self.bestAllTimesScore) + " Of Size: " + str(len(best_list)))
+			self.log(
+				"Best All Times Gen Fitness Score: " + str(self.bestAllTimesScore) + " Of Size: " + str(len(best_list)))
 		return best_list, self.bestAllTimesScore
-
 
 	def log(self, msg, verbose=True):
 		if verbose:
@@ -341,33 +340,31 @@ class GeneticSearch:
 		with open(filename, 'wb') as output:
 			pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
 
-
 	def fromPickle(self, filename):
 		with open(filename, 'rb') as input:
 			self = pickle.load(input)
-
-
 
 
 '''
 	Abstract class for heuristic of a fittness.
 	Pass an object that inherits from this class to calculate the fitness
 '''
-#HeuristicDataSets = namedtuple('HeuristicDataSets', ['trainData','trainClass','testData','testClass'])
+
+
+# HeuristicDataSets = namedtuple('HeuristicDataSets', ['trainData','trainClass','testData','testClass'])
 
 class WrapperHeuristic:
 	def __init__(self, dataset, classCol, baseModelList):
 		#	C'tor
-		#self.dataset = dataset
+		# self.dataset = dataset
 		self.baseModelList = baseModelList
-		#self.classCol = classCol
+		# self.classCol = classCol
 
 		from sklearn.model_selection import train_test_split
 		self.trainData, self.testData, self.trainClass, self.testClass = \
 			train_test_split(dataset, classCol, train_size=0.65, test_size=0.35)
-		#self.dataSetsTuple = HeuristicDataSets(trainData, trainClass, testData, testClass)
 
-
+	# self.dataSetsTuple = HeuristicDataSets(trainData, trainClass, testData, testClass)
 
 	def evaluateFitness(self, featuresMask):
 		'''
@@ -380,12 +377,10 @@ class WrapperHeuristic:
 		if len(featuresSubset) < 1:
 			return np.inf
 
-
 		for baseModel in self.baseModelList:
 			baseModel.fit(self.trainData.loc[:, featuresSubset], self.trainClass)
 		scores = np.mean(
 			[baseModel.score(self.testData.loc[:, featuresSubset], self.testClass) for baseModel in self.baseModelList])
-
 
 		#	split data into test and train subgroups:
 		# from sklearn.model_selection import cross_val_score

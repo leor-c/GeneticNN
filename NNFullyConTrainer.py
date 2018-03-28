@@ -22,6 +22,10 @@ class NNFullyConTrainer:
             self.yHat = self.buildNetwork()
             self.prediction = self.getPrediction(self.yHat)
             self.sess = tf.Session()
+            self.getParametersInfoList()
+            self.labels = tf.placeholder(tf.int32, [None])
+            self.loss = self.getCELossOp(self.logits, self.labels)
+            self.graph.finalize()
 
     def buildNetwork(self):
         #   Construct an input layer:
@@ -33,7 +37,7 @@ class NNFullyConTrainer:
             with self.graph.name_scope("Layer{}".format(i)):
                 newHiddenLayer = self.buildLayer(prevLayer, i)
                 #   Add activation (can be non-differentiable! :D):
-                newHiddenLayer = self.applyActivation(newHiddenLayer)
+                newHiddenLayer = self.applyActivation(newHiddenLayer) if i != len(self.networkShape)-1 else tf.nn.sigmoid(newHiddenLayer)
 
                 prevLayer = newHiddenLayer
         self.logits = prevLayer
@@ -124,14 +128,13 @@ class NNFullyConTrainer:
         return tf.argmax(yHat, axis=1)
 
     def getCELossOp(self, logits, labels):
-        ceLoss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits,
-                                                                        labels=tf.one_hot(labels, depth=self.networkShape[-1])))
+        ceLoss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=labels))
         return ceLoss
 
     def getCELoss(self, testExamples, testLabels):
         with self.graph.as_default():
             self.feedDict[self.inputLayer] = testExamples
-            loss = self.getCELossOp(self.logits, testLabels)
-            lossVal = self.sess.run(loss, self.feedDict)
+            self.feedDict[self.labels] = testLabels
+            lossVal = self.sess.run(self.loss, self.feedDict)
         return lossVal*100
 

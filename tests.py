@@ -102,27 +102,48 @@ class basicTest(unittest.TestCase):
     #     print ("Accuracy: " + str(acc2))
 
 
+class Config:
+    batchSize = 100
+    nClasses = 10
+    networkShape = [nClasses, 100, 100, nClasses]
+
+
+def getTrainBatch(batchSize=Config.batchSize, nClasses=Config.nClasses):
+    """
+	generate a batch of training examples & labels
+	:return: training batch, labels batch
+	"""
+    #	Generate training batch:
+    trainBatch = np.random.rand(batchSize, nClasses)
+
+    #	retrieve the labels:
+    labelsBatch = np.argmin(trainBatch, axis=1)
+
+    return trainBatch, labelsBatch
+
+
 if __name__ == '__main__':
     # unittest.main()
-    netTrainer = NNFCT([10, 100, 100, 10])
+    netTrainer = NNFCT(Config.networkShape)
 
     numOfExamples = 10000
     sizeOfSet = 10
     intervalMax = 100000
 
     # testBatch = np.random.rand(numOfExamples, sizeOfSet) * 100
-    testBatch = np.random.choice(intervalMax, size=(numOfExamples, sizeOfSet), replace=False).astype(
-        float) / intervalMax
-    yTest = np.argmin(testBatch, axis=1)
+    # testBatch = np.random.choice(intervalMax, size=(numOfExamples, sizeOfSet), replace=False).astype(
+    #     float) / intervalMax
+    # yTest = np.argmin(testBatch, axis=1)
 
-    acc = netTrainer.score(testBatch, yTest)
-    print ("Accuracy: " + str(acc))
+    # acc = netTrainer.score(testBatch, yTest)
+    # print ("Accuracy: " + str(acc))
 
     import time
     timestamp = int(time.time())
 
-    gnn = GeneticNN.GeneticNN(GeneticNN.SearchInterval(-1.5, 1.5), logFile="logs/log{}.txt".format(timestamp))
-    gnn.tuneParameters(netTrainer, testBatch, yTest)
+    gnn = GeneticNN.GeneticNN(GeneticNN.SearchInterval(-1, 1), logFile="logs/log{}.txt".format(timestamp))
+    gnn.tuneParameters(netTrainer, getTrainBatch)
 
+    testBatch, yTest = getTrainBatch()
     acc2 = netTrainer.score(testBatch, yTest)
     print ("Accuracy: " + str(acc2))

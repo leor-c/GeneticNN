@@ -4,6 +4,11 @@ from collections import namedtuple
 
 SearchInterval = namedtuple('SearchInterval', ['low', 'high'])
 
+class Config:
+    numOfIntervalPartitions = 9
+    maxNumOfImproveTries = 15
+    populationSize = 150
+
 class GeneticNN:
     """
     This class is intended to perform weight search for Neural Networks. Given the interval of values
@@ -13,7 +18,7 @@ class GeneticNN:
 
 
 
-    def __init__(self, interval, logFile=None):
+    def __init__(self, interval, config=Config(), logFile=None):
         """
 
         :param interval: a SearchInterval tuple of low and high interval boundaries - (low, high).
@@ -21,10 +26,9 @@ class GeneticNN:
         """
         self.searchInterval = interval
         self.logFile = logFile
-        self.numOfIntervalPartitions = 3
-        self.populationSize = 50
+        self.config = config
 
-    def tuneParameters(self, model, trainSet, trainLabels, numberOfIterations=5, verbose=True):
+    def tuneParameters(self, model, dataLabelGenerator, numberOfIterations=5, verbose=True):
         """
         This function should actually tune the parameters / weights and return a list of tuned parameters as result.
         :return:
@@ -41,16 +45,16 @@ class GeneticNN:
         bestParams = None
         bestFitness = None
         bestPoint = None
-        evaluator = NNWeightsEvaluator(searchIntervals, self.numOfIntervalPartitions,
-                                       model, weightsShapesList, weightsSizesList, trainSet, trainLabels)
+        evaluator = NNWeightsEvaluator(searchIntervals, self.config.numOfIntervalPartitions,
+                                       model, weightsShapesList, weightsSizesList, dataLabelGenerator)
+        GA = GeneticSearch(numberOfParameters, self.logFile,
+                               numOfCategories=self.config.numOfIntervalPartitions, fitnessObj=evaluator)
         for iteration in range(numberOfIterations):
-            GA = GeneticSearch(numberOfParameters, self.logFile,
-                               numOfCategories=self.numOfIntervalPartitions, fitnessObj=evaluator)
-            GA.constructPopulation(self.populationSize, GeneticSearch.InitialPopulation.RANDOM)
-            GA.startEvolution(maxNumOfImproveTries=50 , verbose=True)
+            GA.constructPopulation(self.config.populationSize, GeneticSearch.InitialPopulation.RANDOM)
+            GA.startEvolution(maxNumOfImproveTries=self.config.maxNumOfImproveTries , verbose=True)
 
             currentBestParams, currentBestFitness = GA.getBestSubsetAllTimes()
-            currentBestPoint = self.getPoint(currentBestParams, searchIntervals, self.numOfIntervalPartitions)
+            currentBestPoint = self.getPoint(currentBestParams, searchIntervals, self.config.numOfIntervalPartitions)
             if bestFitness is None or currentBestFitness < bestFitness:
                 bestParams = currentBestParams
                 bestFitness = currentBestFitness
@@ -77,7 +81,7 @@ class GeneticNN:
         :param subintervalIdx:
         :return:
         """
-        subIntervalDelta = (interval.high - interval.low) / float(self.numOfIntervalPartitions)
+        subIntervalDelta = (interval.high - interval.low) / float(self.config.numOfIntervalPartitions)
         low = interval.low + subIntervalIdx * subIntervalDelta
         high = low + subIntervalDelta
         return SearchInterval(low, high)
@@ -124,14 +128,13 @@ class GeneticNN:
 class NNWeightsEvaluator:
 
     def __init__(self, searchIntervals, numOfIntervalPartitions, model,
-                 weightsShapesList, weightsSizesList, trainSet, trainLabels):
+                 weightsShapesList, weightsSizesList, dataLabelGenerator):
         self.searchIntervals = searchIntervals
         self.numOfIntervalPartitions = numOfIntervalPartitions
         self.model = model
         self.weightsShapesList = weightsShapesList
         self.weightsSizesList = weightsSizesList
-        self.trainSet = trainSet
-        self.trainLabels = trainLabels
+        self.dataLabelGenerator = dataLabelGenerator
 
     def updateSearchIntervals(self, newSearchIntervals):
         self.searchIntervals = newSearchIntervals
@@ -151,9 +154,10 @@ class NNWeightsEvaluator:
         self.model.updateParameters(parametersList)
 
         #   compute score and transform to fitness:
-        modelScore = self.model.score(self.trainSet, self.trainLabels)
-        print(modelScore)
-        modelCE = self.model.getCELoss(self.trainSet, self.trainLabels)
+        trainSet, trainLabels = self.dataLabelGenerator()
+        modelScore = self.model.score(trainSet, trainLabels)
+        #print(modelScore)
+        modelCE = self.model.getCELoss(trainSet, trainLabels)
         #return (1 - modelScore) * 100
         return modelCE
 
